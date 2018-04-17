@@ -15,8 +15,6 @@ SCRIPT
 Vagrant.configure(2) do |config|
 
     # What box should we base this build on?
-    config.vm.box = "ubuntu/xenial64"
-    config.vm.box_version = ">= 20180126.0.0"
 
     #######################################################################
     # THIS REQUIRES YOU TO INSTALL A PLUGIN. RUN THE COMMAND BELOW...
@@ -32,19 +30,10 @@ Vagrant.configure(2) do |config|
     # forward terminal type for better compatibility with Dialog - disabled on Ubuntu by default
     config.ssh.forward_env = ["TERM"]
 
-    # default user name is "ubuntu", please do not change it
-
-    # SSH password auth is disabled by default, uncomment to enable and set the password
-    #config.ssh.password = "armbian"
-
-    config.vm.provider "virtualbox" do |vb|
-        vb.name = "Armbian Builder"
-
-        # uncomment this to enable the VirtualBox GUI
-        #vb.gui = true
-
-        # Tweak these to fit your needs.
-        #vb.memory = "8192"
-        #vb.cpus = "4"
+    config.vm.provider "vmware_fusion" do |v|
+      config.vm.box = "bento/ubuntu-16.04"
+      v.vmx["memsize"] = 8192
+      v.vmx["numvcpus"] = 4
     end
+
 end

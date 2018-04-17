@@ -2,4 +2,4 @@ sudo: enabled
 dist: xenial
 script:
   - pwd
-  - sudo ./compile.sh connectbox-opizeroplus2
+  - sudo ./compile.sh connectbox-nanopineo
