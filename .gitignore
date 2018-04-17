@@ -10,6 +10,7 @@ ubuntu-*-cloudimg-console.log
 ### but not default (supplied) files
 !/config-docker.conf
 !/config-vagrant.conf
+!/config-connectbox-*.conf
 
 ### output directories
 /.tmp/
