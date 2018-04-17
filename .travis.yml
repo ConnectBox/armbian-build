@@ -1,4 +1,5 @@
 sudo: enabled
 dist: xenial
 script:
-  - /bin/true
+  - pwd
+  - sudo ./compile.sh connectbox-opizeroplus2
