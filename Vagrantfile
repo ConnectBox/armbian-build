@@ -38,4 +38,17 @@ Vagrant.configure(2) do |config|
       v.vmx["numvcpus"] = 4
     end
 
+    config.vm.provider "virtualbox" do |vb|
+        vb.name = "Armbian Builder"
+	config.vm.box = "ubuntu/xenial64"
+	config.vm.box_version = ">= 20180126.0.0"
+
+        # uncomment this to enable the VirtualBox GUI
+        #vb.gui = true
+
+        # Tweak these to fit your needs.
+        #vb.memory = "8192"
+        #vb.cpus = "4"
+    end
+
 end
