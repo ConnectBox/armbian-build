@@ -14,8 +14,6 @@ SCRIPT
 
 Vagrant.configure(2) do |config|
 
-    # What box should we base this build on?
-
     #######################################################################
     # THIS REQUIRES YOU TO INSTALL A PLUGIN. RUN THE COMMAND BELOW...
     #
@@ -31,15 +29,15 @@ Vagrant.configure(2) do |config|
     config.ssh.forward_env = ["TERM"]
 
     config.vm.provider "vmware_fusion" do |v|
-      config.vm.box = "bento/ubuntu-16.04"
+      config.vm.box = "bento/ubuntu-18.04"
       v.vmx["memsize"] = 8192
       v.vmx["numvcpus"] = 4
     end
 
     config.vm.provider "virtualbox" do |vb|
         vb.name = "Armbian Builder"
-	config.vm.box = "ubuntu/xenial64"
-	config.vm.box_version = ">= 20180126.0.0"
+        config.vm.box = "ubuntu/bionic64"
+        config.vm.box_version = ">= 20180719.0.0"
 
         # uncomment this to enable the VirtualBox GUI
         #vb.gui = true
