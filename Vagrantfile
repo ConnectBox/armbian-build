@@ -36,7 +36,7 @@ Vagrant.configure(2) do |config|
         #   $ vagrant plugin install vagrant-disksize
         #
         # Default images are not big enough to build Armbian.
-        config.disksize.size = "40GB"
+        #config.disksize.size = "40GB"
         vb.name = "Armbian Builder"
 
         # uncomment this to enable the VirtualBox GUI
