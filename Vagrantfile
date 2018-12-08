@@ -15,13 +15,7 @@ SCRIPT
 Vagrant.configure(2) do |config|
 
 
-    #######################################################################
-    # THIS REQUIRES YOU TO INSTALL A PLUGIN. RUN THE COMMAND BELOW...
-    #
-    #   $ vagrant plugin install vagrant-disksize
-    #
-    # Default images are not big enough to build Armbian.
-    config.disksize.size = "40GB"
+    config.vm.box = "bento/ubuntu-18.04"
 
     # provisioning: install dependencies, download the repository copy
     config.vm.provision "shell", inline: $provisioning_script
@@ -30,16 +24,20 @@ Vagrant.configure(2) do |config|
     config.ssh.forward_env = ["TERM"]
 
     config.vm.provider "vmware_fusion" do |v|
-      config.vm.box = "bento/ubuntu-18.04"
-      config.vm.box_version = ">= 201808.24.0"
+      v.name = "Armbian Builder"
       v.vmx["memsize"] = 8192
       v.vmx["numvcpus"] = 4
     end
 
     config.vm.provider "virtualbox" do |vb|
+        #######################################################################
+        # THIS REQUIRES YOU TO INSTALL A PLUGIN. RUN THE COMMAND BELOW...
+        #
+        #   $ vagrant plugin install vagrant-disksize
+        #
+        # Default images are not big enough to build Armbian.
+        config.disksize.size = "40GB"
         vb.name = "Armbian Builder"
-        config.vm.box = "ubuntu/bionic64"
-	config.vm.box_version = ">= 20180719.0.0"
 
         # uncomment this to enable the VirtualBox GUI
         #vb.gui = true
