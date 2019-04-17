@@ -57,8 +57,12 @@ compile_atf()
 	# create patch for manual source changes
 	[[ $CREATE_PATCHES == yes ]] && userpatch_create "atf"
 
+	echo -e "\n\t==  atf  ==\n" >>$DEST/debug/compilation.log
+	# ENABLE_BACKTRACE="0" has been added to workaround a regression in ATF.
+	# Check: https://github.com/armbian/build/issues/1157
 	eval CCACHE_BASEDIR="$(pwd)" env PATH=$toolchain:$toolchain2:$PATH \
-		'make $target_make $CTHREADS CROSS_COMPILE="$CCACHE $ATF_COMPILER"' 2>&1 \
+		'make ENABLE_BACKTRACE="0" $target_make $CTHREADS \
+		CROSS_COMPILE="$CCACHE $ATF_COMPILER"' 2>>$DEST/debug/compilation.log \
 		${PROGRESS_LOG_TO_FILE:+' | tee -a $DEST/debug/compilation.log'} \
 		${OUTPUT_DIALOG:+' | dialog --backtitle "$backtitle" --progressbox "Compiling ATF..." $TTY_Y $TTY_X'} \
 		${OUTPUT_VERYSILENT:+' >/dev/null 2>/dev/null'}
@@ -140,15 +144,17 @@ compile_uboot()
 			cp -Rv $atftempdir/*.bin .
 		fi
 
+		echo -e "\n\t== u-boot ==\n" >>$DEST/debug/compilation.log
 		eval CCACHE_BASEDIR="$(pwd)" env PATH=$toolchain:$PATH \
-			'make $CTHREADS $BOOTCONFIG CROSS_COMPILE="$CCACHE $UBOOT_COMPILER"' 2>&1 \
+			'make $CTHREADS $BOOTCONFIG \
+			CROSS_COMPILE="$CCACHE $UBOOT_COMPILER"' 2>>$DEST/debug/compilation.log \
 			${PROGRESS_LOG_TO_FILE:+' | tee -a $DEST/debug/compilation.log'} \
 			${OUTPUT_VERYSILENT:+' >/dev/null 2>/dev/null'}
 
 		# armbian specifics u-boot settings
 		[[ -f .config ]] && sed -i 's/CONFIG_LOCALVERSION=""/CONFIG_LOCALVERSION="-armbian"/g' .config
 		[[ -f .config ]] && sed -i 's/CONFIG_LOCALVERSION_AUTO=.*/# CONFIG_LOCALVERSION_AUTO is not set/g' .config
-		if [[ $BOOTBRANCH == "tag:v2018".* ]]; then
+		if [[ $BOOTBRANCH =~ ^tag:v201[8-9](.*) ]]; then
 			[[ -f .config ]] && sed -i 's/^.*CONFIG_ENV_IS_IN_FAT.*/# CONFIG_ENV_IS_IN_FAT is not set/g' .config
 			[[ -f .config ]] && sed -i 's/^.*CONFIG_ENV_IS_IN_EXT4.*/CONFIG_ENV_IS_IN_EXT4=y/g' .config
 			[[ -f .config ]] && sed -i 's/^.*CONFIG_ENV_IS_IN_MMC.*/# CONFIG_ENV_IS_IN_MMC is not set/g' .config
@@ -165,7 +171,8 @@ compile_uboot()
 		[[ -n $BOOTDELAY ]] && sed -i "s/^CONFIG_BOOTDELAY=.*/CONFIG_BOOTDELAY=${BOOTDELAY}/" .config || [[ -f .config ]] && echo "CONFIG_BOOTDELAY=${BOOTDELAY}" >> .config
 
 		eval CCACHE_BASEDIR="$(pwd)" env PATH=$toolchain:$PATH \
-			'make $target_make $CTHREADS CROSS_COMPILE="$CCACHE $UBOOT_COMPILER"' 2>&1 \
+			'make $target_make $CTHREADS \
+			CROSS_COMPILE="$CCACHE $UBOOT_COMPILER"' 2>>$DEST/debug/compilation.log \
 			${PROGRESS_LOG_TO_FILE:+' | tee -a $DEST/debug/compilation.log'} \
 			${OUTPUT_DIALOG:+' | dialog --backtitle "$backtitle" --progressbox "Compiling u-boot..." $TTY_Y $TTY_X'} \
 			${OUTPUT_VERYSILENT:+' >/dev/null 2>/dev/null'}
@@ -186,29 +193,6 @@ compile_uboot()
 			cp $f_src $SRC/.tmp/$uboot_name/usr/lib/$uboot_name/$f_dst
 		done
 	done <<< "$UBOOT_TARGET_MAP"
-
-	# set up postinstall script
-	cat <<-EOF > $SRC/.tmp/$uboot_name/DEBIAN/postinst
-	#!/bin/bash
-	source /usr/lib/u-boot/platform_install.sh
-	[[ \$DEVICE == /dev/null ]] && exit 0
-	if [[ -z \$DEVICE ]]; then
-		DEVICE="/dev/mmcblk0"
-		# proceed to other options.
-		[ ! -b \$DEVICE ] && DEVICE="/dev/mmcblk1"
-		[ ! -b \$DEVICE ] && DEVICE="/dev/mmcblk2"
-	fi
-	[[ \$(type -t setup_write_uboot_platform) == function ]] && setup_write_uboot_platform
-	if [[ -b \$DEVICE ]]; then
-		echo "Updating u-boot on \$DEVICE" >&2
-		write_uboot_platform \$DIR \$DEVICE
-		sync
-	else
-		echo "Device \$DEVICE does not exist, skipping" >&2
-	fi
-	exit 0
-	EOF
-	chmod 755 $SRC/.tmp/$uboot_name/DEBIAN/postinst
 
 	# declare -f on non-defined function does not do anything
 	cat <<-EOF > $SRC/.tmp/$uboot_name/usr/lib/u-boot/platform_install.sh
@@ -281,6 +265,50 @@ compile_kernel()
 
 	# read kernel version
 	local version=$(grab_version "$kerneldir")
+
+	# add WireGuard
+	if linux-version compare $version ge 3.14 && [ "$WIREGUARD" == yes ]; then
+			display_alert "Adding" "WireGuard" "info"
+			rm -rf $SRC/cache/sources/$LINUXSOURCEDIR/net/wireguard
+			cp -R $SRC/cache/sources/wireguard/src/ $SRC/cache/sources/$LINUXSOURCEDIR/net/wireguard
+			sed -i "/^obj-\\\$(CONFIG_NETFILTER).*+=/a obj-\$(CONFIG_WIREGUARD) += wireguard/" "$SRC/cache/sources/$LINUXSOURCEDIR/net/Makefile"
+			sed -i "/^if INET\$/a source \"net/wireguard/Kconfig\"" "$SRC/cache/sources/$LINUXSOURCEDIR/net/Kconfig"
+			# remove duplicates
+			[[ $(cat $SRC/cache/sources/$LINUXSOURCEDIR/net/Makefile | grep wireguard | wc -l) -gt 1 ]] && \
+			sed -i '0,/wireguard/{/wireguard/d;}' $SRC/cache/sources/$LINUXSOURCEDIR/net/Makefile
+			[[ $(cat $SRC/cache/sources/$LINUXSOURCEDIR/net/Kconfig | grep wireguard | wc -l) -gt 1 ]] && \
+			sed -i '0,/wireguard/{/wireguard/d;}' $SRC/cache/sources/$LINUXSOURCEDIR/net/Kconfig
+			# headers workaround
+			display_alert "Patching WireGuard" "Applying workaround for headers compilation" "info"
+			sed -i '/mkdir -p "$destdir"/a mkdir -p "$destdir"/net/wireguard; touch "$destdir"/net/wireguard/{Kconfig,Makefile} # workaround for Wireguard' $SRC/cache/sources/$LINUXSOURCEDIR/scripts/package/builddeb
+	fi
+
+	# add drivers for Realtek 8811, 8812, 8814 and 8821 chipsets
+	if linux-version compare $version ge 3.14 && [ "$RTL8812AU" == yes ]; then
+		display_alert "Adding" "Wireless drivers for Realtek 8811, 8812, 8814 and 8821 chipsets" "info"
+		rm -rf $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/rtl8812au
+		mkdir -p $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/rtl8812au/
+		ln -s $SRC/cache/sources/rtl8812au/core $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/rtl8812au/core
+		ln -s $SRC/cache/sources/rtl8812au/hal $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/rtl8812au/hal
+		ln -s $SRC/cache/sources/rtl8812au/include $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/rtl8812au/include
+		ln -s $SRC/cache/sources/rtl8812au/os_dep $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/rtl8812au/os_dep
+		ln -s $SRC/cache/sources/rtl8812au/platform $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/rtl8812au/platform
+		ln -s $SRC/cache/sources/rtl8812au/modules.order $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/rtl8812au/modules.order
+
+		# Makefile
+		cp $SRC/cache/sources/rtl8812au/Makefile $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/rtl8812au/Makefile
+		cp $SRC/cache/sources/rtl8812au/Kconfig $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/rtl8812au/Kconfig
+
+		# Adjust path
+		sed -i 's/include $(TopDIR)\/hal\/phydm\/phydm.mk/include $(TopDIR)\/drivers\/net\/wireless\/rtl8812au\/hal\/phydm\/phydm.mk/' \
+		$SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/rtl8812au/Makefile
+
+		# Add to section Makefile
+		sed -i '/obj-$(CONFIG_.*ATMEL).*/a obj-$(CONFIG_RTL8812AU) += rtl8812au/' \
+		$SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/Makefile
+		sed -i '/source "drivers\/net\/wireless\/ti\/Kconfig"/a source "drivers\/net\/wireless\/rtl8812au\/Kconfig"' \
+		$SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/Kconfig
+	fi
 
 	# create linux-source package - with already patched sources
 	local sources_pkg_dir=$SRC/.tmp/${CHOSEN_KSRC}_${REVISION}_all
@@ -355,11 +383,15 @@ compile_kernel()
 
 	xz < .config > $sources_pkg_dir/usr/src/${LINUXCONFIG}_${version}_${REVISION}_config.xz
 
+	echo -e "\n\t== kernel ==\n" >>$DEST/debug/compilation.log
 	eval CCACHE_BASEDIR="$(pwd)" env PATH=$toolchain:$PATH \
-		'make $CTHREADS ARCH=$ARCHITECTURE CROSS_COMPILE="$CCACHE $KERNEL_COMPILER" LOCALVERSION="-$LINUXFAMILY" \
-		$KERNEL_IMAGE_TYPE modules dtbs 2>&1' \
+		'make $CTHREADS ARCH=$ARCHITECTURE \
+		CROSS_COMPILE="$CCACHE $KERNEL_COMPILER" \
+		LOCALVERSION="-$LINUXFAMILY" \
+		$KERNEL_IMAGE_TYPE modules dtbs 2>>$DEST/debug/compilation.log' \
 		${PROGRESS_LOG_TO_FILE:+' | tee -a $DEST/debug/compilation.log'} \
-		${OUTPUT_DIALOG:+' | dialog --backtitle "$backtitle" --progressbox "Compiling kernel..." $TTY_Y $TTY_X'} \
+		${OUTPUT_DIALOG:+' | dialog --backtitle "$backtitle" \
+		--progressbox "Compiling kernel..." $TTY_Y $TTY_X'} \
 		${OUTPUT_VERYSILENT:+' >/dev/null 2>/dev/null'}
 
 	if [[ ${PIPESTATUS[0]} -ne 0 || ! -f arch/$ARCHITECTURE/boot/$KERNEL_IMAGE_TYPE ]]; then
@@ -376,9 +408,16 @@ compile_kernel()
 	display_alert "Creating packages"
 
 	# produce deb packages: image, headers, firmware, dtb
+	echo -e "\n\t== deb packages: image, headers, firmware, dtb ==\n" >>$DEST/debug/compilation.log
 	eval CCACHE_BASEDIR="$(pwd)" env PATH=$toolchain:$PATH \
-		'make -j1 $kernel_packing KDEB_PKGVERSION=$REVISION LOCALVERSION="-${LINUXFAMILY}" \
-		KBUILD_DEBARCH=$ARCH ARCH=$ARCHITECTURE DEBFULLNAME="$MAINTAINER" DEBEMAIL="$MAINTAINERMAIL" CROSS_COMPILE="$CCACHE $KERNEL_COMPILER" 2>&1' \
+		'make -j1 $kernel_packing \
+		KDEB_PKGVERSION=$REVISION \
+		LOCALVERSION="-${LINUXFAMILY}" \
+		KBUILD_DEBARCH=$ARCH \
+		ARCH=$ARCHITECTURE \
+		DEBFULLNAME="$MAINTAINER" \
+		DEBEMAIL="$MAINTAINERMAIL" \
+		CROSS_COMPILE="$CCACHE $KERNEL_COMPILER" 2>>$DEST/debug/compilation.log' \
 		${PROGRESS_LOG_TO_FILE:+' | tee -a $DEST/debug/compilation.log'} \
 		${OUTPUT_DIALOG:+' | dialog --backtitle "$backtitle" --progressbox "Creating kernel packages..." $TTY_Y $TTY_X'} \
 		${OUTPUT_VERYSILENT:+' >/dev/null 2>/dev/null'}
@@ -477,6 +516,14 @@ find_toolchain()
 		fi
 	done
 	echo "$toolchain"
+	# logging a stack of used compilers.
+	if [[ -f $DEST/debug/compiler.log ]]; then
+		if ! grep -q "$toolchain" $DEST/debug/compiler.log; then
+			echo "$toolchain" >> $DEST/debug/compiler.log;
+		fi
+	else
+			echo "$toolchain" >> $DEST/debug/compiler.log;
+	fi
 }
 
 # advanced_patch <dest> <family> <board> <target> <branch> <description>
