@@ -14,19 +14,21 @@ SCRIPT
 
 Vagrant.configure(2) do |config|
 
-    #######################################################################
-    # THIS REQUIRES YOU TO INSTALL A PLUGIN. RUN THE COMMAND BELOW...
-    #
-    #   $ vagrant plugin install vagrant-disksize
-    #
-    # Default images are not big enough to build Armbian.
-    config.disksize.size = "40GB"
-
     # provisioning: install dependencies, download the repository copy
     config.vm.provision "shell", inline: $provisioning_script
 
     # forward terminal type for better compatibility with Dialog - disabled on Ubuntu by default
     config.ssh.forward_env = ["TERM"]
+
+    config.vm.provider "virtualbox" do |v|
+      #######################################################################
+      # THIS REQUIRES YOU TO INSTALL A PLUGIN. RUN THE COMMAND BELOW...
+      #
+      #   $ vagrant plugin install vagrant-disksize
+      #
+      # Default images are not big enough to build Armbian.
+      #config.disksize.size = "40GB"
+    end
 
     config.vm.provider "vmware_fusion" do |v|
       config.vm.box = "bento/ubuntu-18.04"
