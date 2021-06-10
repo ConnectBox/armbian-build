@@ -67,6 +67,7 @@ CAN_BUILD_STRETCH=yes
 [[ -z $CRYPTROOT_SSH_UNLOCK_PORT ]] && CRYPTROOT_SSH_UNLOCK_PORT=2022
 [[ -z $WIREGUARD ]] && WIREGUARD="no"
 [[ -z $RTL8812AU ]] && RTL8812AU="yes"
+[[ -z $MT7601U ]] && MT7601U='yes'
 
 # single ext4 partition is the default and preferred configuration
 #BOOTFS_TYPE=''

@@ -310,6 +310,28 @@ compile_kernel()
 		$SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/Kconfig
 	fi
 
+ 	# add drivers for Railink MT7601u chipsets
+	if linux-version compare $version ge 3.14 && [ "$MT7601U"==yes ]; then
+		display_alert "Adding" "Wireless drivers for Railink MT7601U chipsets" "info"
+		rm -rf $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/mt7601u
+                mkdir -p $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/mt7601u/
+                ln -s $SRC/cache/sources/mt7601u/src $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/mt7601u/src
+                ln -s $SRC/cache/sources/mt7601u/etc/Wireless/RT2870AP $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/mt7601u/etc/Wireless/RT2870AP
+                ln -s $SRC/cache/sources/mt7601u/doc $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/mt7601u/doc
+
+                # Makefile
+                cp $SRC/cache/sources/mt7601u/Makefile $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/mt7601u/Makefile
+                cp $SRC/cache/sources/mt7601u/Makefile.clean $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/mt7601u/Mkefile.clean
+                cp $SRC/cache/sources/mt7601u/Makefile.inc $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/mt7601u/Makefile.inc
+                cp $SRC/cache/sources/mt7601u/config.mk $SRC/cache/sources/$LINUXSOURCEDIR/drivers/net/wireless/mt7601u/config.mk
+
+        fi
+
+
+
+
+
+
 	# create linux-source package - with already patched sources
 	local sources_pkg_dir=$SRC/.tmp/${CHOSEN_KSRC}_${REVISION}_all
 	rm -rf ${sources_pkg_dir}
