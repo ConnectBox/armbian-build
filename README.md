@@ -7,7 +7,7 @@ Debian based Linux for ARM based single-board computers
 
 # How to build an image or a kernel?
 
-Supported build environment is **Ubuntu Bionic 18.04 x64** ([minimal iso image](http://archive.ubuntu.com/ubuntu/dists/bionic/main/installer-amd64/current/images/netboot/mini.iso)).
+Supported build environment is **Ubuntu 20.04 Focal** ([minimal iso image]
 
 - guest inside a [VirtualBox](https://www.virtualbox.org/wiki/Downloads) or other virtualization software,
 - guest managed by [Vagrant](https://docs.armbian.com/Developer-Guide_Using-Vagrant/). This uses Virtualbox (as above) but does so in an easily repeatable way,
