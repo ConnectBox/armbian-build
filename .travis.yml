@@ -1,5 +1,0 @@
-sudo: enabled
-dist: xenial
-script:
-  - pwd
-  - sudo ./compile.sh connectbox-nanopineo
